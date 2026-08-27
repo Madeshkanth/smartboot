@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Boot Monitoring System</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            color: #222;
+        }
+
+        header {
+            background: #111827;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            margin-bottom: 5px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 20px;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .value {
+            font-size: 50px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .category {
+            font-size: 30px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .media-card {
+            text-align: center;
+        }
+
+        .media-card img {
+            width: 100%;
+            max-width: 400px;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 12px;
+            margin-top: 15px;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            background: #eee;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        @media (max-width: 700px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Smart Boot Monitoring System</h1>
+    <p>Real-Time Pressure Monitoring</p>
+</header>
+
+<div class="container">
+
+    <div class="dashboard">
+
+        <div class="card">
+            <h2>Average Pressure</h2>
+            <div class="value" id="average">0%</div>
+        </div>
+
+        <div class="card">
+            <h2>Pressure Category</h2>
+            <div class="category" id="category">Waiting</div>
+        </div>
+
+        <div class="card media-card">
+            <h2>Recommended Picture</h2>
+
+            <img id="pressureImage"
+                 src="{{ url_for('static', filename='images/image1.jpg') }}"
+                 alt="Pressure image">
+        </div>
+<div class="card media-card">
+    <h2>Recommended Music</h2>
+
+    <audio id="musicPlayer" controls>
+        <source id="musicSource"
+                src="{{ url_for('static', filename='music/music1.mp3') }}"
+                type="audio/mpeg">
+    </audio>
+
+    <br><br>
+
+    <button onclick="enableAudio()">
+        🔊 Enable Automatic Music
+    </button>
+</div>
+    </div>
+
+    <div class="status">
+        <strong>Status:</strong>
+        <span id="status">Waiting for ESP32 data...</span>
+    </div>
+
+</div>
+<script>
+
+let lastAverage = null;
+let audioUnlocked = false;
+
+
+// ==========================================
+// UNLOCK AUDIO AFTER USER'S FIRST CLICK
+// ==========================================
+
+document.addEventListener("click", function () {
+
+    const musicPlayer = document.getElementById("musicPlayer");
+
+    musicPlayer.play()
+        .then(() => {
+
+            musicPlayer.pause();
+            musicPlayer.currentTime = 0;
+
+            audioUnlocked = true;
+
+            console.log("Audio unlocked");
+
+        })
+        .catch(() => {
+
+            console.log("Audio unlock failed");
+
+        });
+
+}, { once: true });
+
+
+// ==========================================
+// UPDATE DASHBOARD
+// ==========================================
+
+function updateDashboard(average) {
+
+    let category;
+    let image;
+    let music;
+
+
+    // 0 - 19
+    if (average < 20) {
+
+        category = "Very Low";
+        image = "image1.jpg";
+        music = "music1.mp3";
+
+    }
+
+    // 20 - 39
+    else if (average < 40) {
+
+        category = "Low";
+        image = "image2.jpg";
+        music = "music2.mp3";
+
+    }
+
+    // 40 - 59
+    else if (average < 60) {
+
+        category = "Medium";
+        image = "image3.jpg";
+        music = "music3.mp3";
+
+    }
+
+    // 60 - 79
+    else if (average < 80) {
+
+        category = "High";
+        image = "image4.jpg";
+        music = "music4.mp3";
+
+    }
+
+    // 80 - 100
+    else {
+
+        category = "Very High";
+        image = "image5.jpg";
+        music = "music5.mp3";
+    }
+
+
+    // ==========================================
+    // UPDATE PRESSURE
+    // ==========================================
+
+    document.getElementById("average").textContent =
+        average + "%";
+
+
+    // ==========================================
+    // UPDATE CATEGORY
+    // ==========================================
+
+    document.getElementById("category").textContent =
+        category;
+
+
+    // ==========================================
+    // UPDATE IMAGE
+    // ==========================================
+
+    document.getElementById("pressureImage").src =
+        "/static/images/" + image;
+
+
+    // ==========================================
+    // UPDATE MUSIC
+    // ==========================================
+
+    const musicPlayer =
+        document.getElementById("musicPlayer");
+
+    const musicSource =
+        document.getElementById("musicSource");
+
+
+    // Stop previous music
+    musicPlayer.pause();
+
+    musicPlayer.currentTime = 0;
+
+
+    // Set new music
+    musicSource.src =
+        "/static/music/" + music;
+
+
+    // Reload audio
+    musicPlayer.load();
+
+
+    // ==========================================
+    // PLAY AUTOMATICALLY
+    // ==========================================
+
+    if (audioUnlocked) {
+
+        musicPlayer.play()
+            .then(() => {
+
+                console.log(
+                    "Music started: " + music
+                );
+
+            })
+            .catch(error => {
+
+                console.log(
+                    "Music blocked:",
+                    error
+                );
+
+            });
+
+    }
+
+
+    // ==========================================
+    // STATUS
+    // ==========================================
+
+    document.getElementById("status").textContent =
+        "New 3rd reading received";
+
+}
+
+
+// ==========================================
+// GET DATA FROM FLASK
+// ==========================================
+
+async function getLatestData() {
+
+    try {
+
+        const response =
+            await fetch("/api/latest");
+
+        const data =
+            await response.json();
+
+
+        console.log(
+            "Server average:",
+            data.average
+        );
+
+
+        // Process ONLY a NEW value
+
+        if (
+            data.average > 0 &&
+            data.average !== lastAverage
+        ) {
+
+            lastAverage =
+                data.average;
+
+
+            // New ESP32 reading
+            updateDashboard(
+                data.average
+            );
+
+        }
+
+    }
+
+    catch (error) {
+
+        console.log(
+            "Waiting for server data..."
+        );
+
+    }
+
+}
+
+
+// ==========================================
+// CHECK SERVER EVERY 1 SECOND
+// ==========================================
+
+setInterval(
+    getLatestData,
+    1000
+);
+
+
+// ==========================================
+// TEST BUTTONS
+// ==========================================
+
+function testReading(value) {
+
+    // Make test value a new reading
+    lastAverage = null;
+
+    updateDashboard(value);
+
+}
+
+</script>
+<div style="text-align: center; margin-top: 30px;">
+
+    <h3>Test Pressure</h3>
+
+    <button onclick="testReading(10)">10%</button>
+    <button onclick="testReading(30)">30%</button>
+    <button onclick="testReading(50)">50%</button>
+    <button onclick="testReading(70)">70%</button>
+    <button onclick="testReading(90)">90%</button>
+
+</div>
+</body>
+</html>
