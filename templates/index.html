@@ -324,78 +324,30 @@ function updateDashboard(average) {
 // ==========================================
 // GET DATA FROM FLASK
 // ==========================================
+// ==========================================
+// CONNECT TO FLASK WEBSOCKET
+// ==========================================
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const wsUrl = protocol + '//' + window.location.host + '/ws/browser';
+const socket = new WebSocket(wsUrl);
 
-async function getLatestData() {
+socket.onopen = function() {
+    console.log("Connected to live server");
+    document.getElementById("status").textContent = "Connected to Server (Waiting for ESP32...)";
+};
 
-    try {
-
-        const response =
-            await fetch("/api/latest");
-
-        const data =
-            await response.json();
-
-
-        console.log(
-            "Server average:",
-            data.average
-        );
-
-
-        // Process ONLY a NEW value
-
-        if (
-            data.average > 0 &&
-            data.average !== lastAverage
-        ) {
-
-            lastAverage =
-                data.average;
-
-
-            // New ESP32 reading
-            updateDashboard(
-                data.average
-            );
-
-        }
-
+socket.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    
+    if (data.average >= 0 && data.average !== lastAverage) {
+        lastAverage = data.average;
+        updateDashboard(data.average);
     }
+};
 
-    catch (error) {
-
-        console.log(
-            "Waiting for server data..."
-        );
-
-    }
-
-}
-
-
-// ==========================================
-// CHECK SERVER EVERY 1 SECOND
-// ==========================================
-
-setInterval(
-    getLatestData,
-    1000
-);
-
-
-// ==========================================
-// TEST BUTTONS
-// ==========================================
-
-function testReading(value) {
-
-    // Make test value a new reading
-    lastAverage = null;
-
-    updateDashboard(value);
-
-}
-
+socket.onclose = function() {
+    document.getElementById("status").textContent = "Server connection lost. Refresh page.";
+};
 </script>
 <div style="text-align: center; margin-top: 30px;">
 
